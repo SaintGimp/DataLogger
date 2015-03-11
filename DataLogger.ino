@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include "RTClib.h"
 #include "LowPower.h"
+#include <avr/sleep.h>
 
 const float aref_voltage = 3.32;
 const int temperaturePin = A2;
@@ -13,7 +14,7 @@ const int breakBeamInteruptPin = 3;
 const int peripheralPowerPin = 7;
 const int statusPin = 9;
 
-const int sleepIntervalInSeconds = 2;
+const int sleepIntervalInSeconds = 60;
 
 RTC_DS1337 rtc;
 SdFat sd;
@@ -27,16 +28,13 @@ void setup()
   pinMode(chipSelectPin, OUTPUT);
   pinMode(cardDetectPin, INPUT_PULLUP);
   pinMode(clockInteruptPin, INPUT_PULLUP);
-  pinMode(breakBeamInteruptPin, INPUT_PULLUP);
+  pinMode(breakBeamInteruptPin, INPUT);
   pinMode(peripheralPowerPin, OUTPUT);
   
   analogReference(EXTERNAL);
   
   // The interrupt for the clock is handled differently below
-  attachInterrupt(1, breakBeamWakeUp, FALLING);
-
-  digitalWrite(peripheralPowerPin, LOW);
-  delay(100);
+  attachInterrupt(1, breakBeamWakeUp, RISING);
 
   Wire.begin();
   rtc.begin();
@@ -128,14 +126,23 @@ int getLightLevel()
 
 void turnOffPeripherals()
 {
-  delay(100);
+  delay(10);
   digitalWrite(peripheralPowerPin, HIGH);
+  turnOffI2C();
+}
+
+void turnOffI2C()
+{
+  TWCR &= ~(_BV(TWEN) | _BV(TWIE) | _BV(TWEA));
+  digitalWrite (A4, LOW);
+  digitalWrite (A5, LOW);
 }
 
 void turnOnPeripherals()
 {
   digitalWrite(peripheralPowerPin, LOW);
-  delay(100);
+  delay(10);
+  Wire.begin();
 }
 
 void clockWakeUp()
